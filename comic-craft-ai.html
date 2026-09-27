@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Comic Craft — Generative AI Comic Maker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  --paper:#FFF8E9; --ink:#181614; --hot:#FF3B6B; --blue:#2B6CB0; --yellow:#FFD23F;
+  --panel-bg:#FFFFFF; --sub:#5B5550; --line: rgba(24,22,20,0.12);
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --paper:#171412; --ink:#F5F1EA; --panel-bg:#221E1B; --sub:#B9B0A6; --line: rgba(245,241,234,0.14); }
+}
+:root[data-theme="dark"]{ --paper:#171412; --ink:#F5F1EA; --panel-bg:#221E1B; --sub:#B9B0A6; --line: rgba(245,241,234,0.14); }
+html{scroll-padding-top:env(safe-area-inset-top,0px); height:100%;}
+body{
+  margin:0; min-height:100%; background:var(--paper); color:var(--ink);
+  font-family:"Space Grotesk", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:960px; margin:0 auto; padding:28px 18px 60px;}
+header{ margin-bottom:22px; }
+.eyebrow{ display:flex; align-items:center; gap:8px; color:var(--hot); font-weight:700; font-size:0.8rem; letter-spacing:0.02em; margin-bottom:6px;}
+.eyebrow svg{width:16px;height:16px;flex:none;}
+h1{
+  font-family:"Bangers", "Space Grotesk", sans-serif; font-weight:400;
+  font-size:clamp(2.4rem, 9vw, 4.2rem); line-height:0.95; margin:0 0 8px;
+  letter-spacing:0.01em; color:var(--ink);
+  text-shadow: 3px 3px 0 var(--hot);
+}
+.sub{ color:var(--sub); max-width:56ch; font-size:1.02rem; line-height:1.5; margin:0;}
+
+.deck{
+  background:var(--panel-bg); border:2px solid var(--ink); border-radius:14px;
+  padding:18px; margin:22px 0 26px; box-shadow:5px 5px 0 var(--ink);
+}
+label{ display:block; font-size:0.85rem; font-weight:700; margin-bottom:6px; color:var(--ink);}
+textarea, select{
+  width:100%; font-family:inherit; font-size:1rem; color:var(--ink); background:var(--paper);
+  border:2px solid var(--ink); border-radius:8px; padding:10px 12px; resize:vertical;
+}
+textarea{min-height:76px;}
+.row{ display:flex; gap:14px; margin-top:14px; flex-wrap:wrap;}
+.row > div{flex:1; min-width:140px;}
+.gen-btn{
+  margin-top:16px; width:100%; padding:14px 18px; font-family:"Bangers", sans-serif;
+  font-size:1.4rem; letter-spacing:0.02em; color:#fff; background:var(--hot);
+  border:2px solid var(--ink); border-radius:10px; cursor:pointer;
+  box-shadow:4px 4px 0 var(--ink); transition:transform .08s ease;
+}
+.gen-btn:active{ transform:translate(3px,3px); box-shadow:1px 1px 0 var(--ink); }
+.gen-btn:disabled{ opacity:0.6; cursor:progress; }
+.status{ margin-top:10px; font-size:0.9rem; color:var(--sub); min-height:1.2em;}
+.status.err{ color:var(--hot); font-weight:700;}
+
+.strip-title{
+  font-family:"Bangers", sans-serif; font-size:1.6rem; margin:0 0 14px; letter-spacing:0.01em;
+}
+.grid{
+  display:grid; grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); gap:18px;
+}
+.panel{
+  border:3px solid var(--ink); border-radius:6px; overflow:hidden; background:#fff;
+  box-shadow:4px 4px 0 var(--ink);
+}
+.panel svg{ display:block; width:100%; height:auto; }
+footer{ margin-top:40px; color:var(--sub); font-size:0.82rem; text-align:center;}
+.hidden{display:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M3 6h13v11H3z" stroke="currentColor" stroke-width="2"/><path d="M16 9l5-3v11l-5-3" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      Naan Mudhalvan · Generative AI
+    </div>
+    <h1>Comic Craft</h1>
+    <p class="sub">Type an idea. An AI scripts the story beat-by-beat, and this page draws it live — panels, characters, speech bubbles and all.</p>
+  </header>
+
+  <div class="deck">
+    <label for="idea">Your story idea</label>
+    <textarea id="idea" placeholder="e.g. A shy robot enters a village bakery competition">A curious student discovers an old robot that has forgotten how to smile</textarea>
+    <div class="row">
+      <div>
+        <label for="style">Comic style</label>
+        <select id="style">
+          <option value="adventure">Adventure</option>
+          <option value="comedy" selected>Comedy</option>
+          <option value="noir">Noir</option>
+          <option value="scifi">Sci-Fi</option>
+        </select>
+      </div>
+      <div>
+        <label for="panels">Panels</label>
+        <select id="panels">
+          <option value="4" selected>4 panels</option>
+          <option value="6">6 panels</option>
+        </select>
+      </div>
+    </div>
+    <button class="gen-btn" id="genBtn">Generate Comic ⚡</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div id="output"></div>
+
+  <footer>Comic Craft — built with generative AI · panels rendered as live SVG</footer>
+</div>
+
+<script>
+const PALETTES = {
+  adventure: { bg:['#7FA65C','#3E7C5A','#D9A441'], accent:'#3E7C5A' },
+  comedy:    { bg:['#FFD23F','#FF9F1C','#FF3B6B'], accent:'#FF3B6B' },
+  noir:      { bg:['#5B5550','#3A3633','#8C8680'], accent:'#2B2B2B' },
+  scifi:     { bg:['#2B6CB0','#7C3AED','#22D3EE'], accent:'#7C3AED' },
+};
+const CHAR_COLORS = ['#FF3B6B','#2B6CB0','#FFD23F','#7C3AED','#3E7C5A','#FF9F1C'];
+
+function hashStr(s){ let h=0; for(let i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) >>> 0; } return h; }
+function pick(arr, seed){ return arr[seed % arr.length]; }
+function wrapText(text, maxChars){
+  const words = (text||'').split(/\s+/).filter(Boolean);
+  const lines = []; let cur = '';
+  for(const w of words){
+    if((cur + ' ' + w).trim().length > maxChars){ if(cur) lines.push(cur.trim()); cur = w; }
+    else cur = (cur + ' ' + w).trim();
+  }
+  if(cur) lines.push(cur.trim());
+  return lines.slice(0,4);
+}
+
+function faceFeatures(mood){
+  switch(mood){
+    case 'happy': return { brow:'M -14 -8 Q 0 -14 14 -8', mouth:'M -12 8 Q 0 20 12 8' };
+    case 'sad': return { brow:'M -14 -6 Q 0 -2 14 -6', mouth:'M -12 14 Q 0 4 12 14' };
+    case 'angry': return { brow:'M -14 -4 L 14 -12', brow2:true, mouth:'M -10 12 L 10 12' };
+    case 'surprised': return { brow:'M -14 -12 Q 0 -18 14 -12', mouth:'circle' };
+    case 'scared': return { brow:'M -14 -10 Q 0 -16 14 -10', mouth:'M -10 12 Q 0 6 10 12' };
+    case 'confused': return { brow:'M -14 -10 Q -4 -14 4 -6 Q 10 -12 14 -8', mouth:'M -10 10 Q 0 12 10 8' };
+    default: return { brow:'M -14 -8 Q 0 -10 14 -8', mouth:'M -10 10 Q 0 12 10 10' };
+  }
+}
+
+function characterSVG(cx, cy, name, mood){
+  const color = pick(CHAR_COLORS, hashStr(name||'x'));
+  const f = faceFeatures(mood);
+  const mouthEl = f.mouth === 'circle'
+    ? `<circle cx="${cx}" cy="${cy+14}" r="6" fill="#181614"/>`
+    : `<path d="M ${cx-12} ${cy+8+ (f.mouth.split(' ')[1]?0:0)}" fill="none"/><path d="${f.mouth.replace(/-?\d+/g,(m)=>'')}" fill="none"/>`;
+  // build mouth path with correct absolute coords
+  const mouthAbs = f.mouth === 'circle' ? '' :
+    f.mouth.replace(/(-?\d+)\s(-?\d+)/g, (m,a,b)=> `${cx+parseInt(a)} ${cy+parseInt(b)}`);
+  const browAbs = f.brow.replace(/(-?\d+)\s(-?\d+)/g, (m,a,b)=> `${cx+parseInt(a)} ${cy-30+parseInt(b)}`);
+  return `
+    <g>
+      <circle cx="${cx}" cy="${cy}" r="34" fill="${color}" stroke="#181614" stroke-width="3"/>
+      <circle cx="${cx-11}" cy="${cy-4}" r="4" fill="#181614"/>
+      <circle cx="${cx+11}" cy="${cy-4}" r="4" fill="#181614"/>
+      <path d="${browAbs}" stroke="#181614" stroke-width="3" fill="none" stroke-linecap="round"/>
+      ${f.mouth === 'circle' ? `<circle cx="${cx}" cy="${cy+14}" r="5" fill="#181614"/>` : `<path d="${mouthAbs}" stroke="#181614" stroke-width="3" fill="none" stroke-linecap="round"/>`}
+    </g>`;
+}
+
+function speechBubble(x, y, w, h, lines, tailLeft){
+  const tailPath = tailLeft
+    ? `M ${x+24} ${y+h} L ${x+8} ${y+h+16} L ${x+40} ${y+h} Z`
+    : `M ${x+w-24} ${y+h} L ${x+w-8} ${y+h+16} L ${x+w-40} ${y+h} Z`;
+  const lineEls = lines.map((l,i)=>`<text x="${x+w/2}" y="${y+26+i*20}" text-anchor="middle" font-family="Space Grotesk, sans-serif" font-weight="700" font-size="15" fill="#181614">${escapeXML(l)}</text>`).join('');
+  return `
+    <g>
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="14" fill="#fff" stroke="#181614" stroke-width="3"/>
+      <path d="${tailPath}" fill="#fff" stroke="#181614" stroke-width="3" stroke-linejoin="round"/>
+      ${lineEls}
+    </g>`;
+}
+
+function escapeXML(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function halftonePattern(id, color){
+  return `<pattern id="${id}" width="14" height="14" patternUnits="userSpaceOnUse">
+      <rect width="14" height="14" fill="${color}"/>
+      <circle cx="7" cy="7" r="2.2" fill="rgba(0,0,0,0.10)"/>
+    </pattern>`;
+}
+
+function renderPanel(panel, idx, style){
+  const pal = PALETTES[style] || PALETTES.comedy;
+  const bg = pick(pal.bg, hashStr((panel.setting||'')+idx));
+  const patId = `dots${idx}`;
+  const rotate = (idx % 2 === 0) ? -0.6 : 0.6;
+  const dialogueLines = wrapText(panel.dialogue, 20);
+  const bubbleH = 26 + dialogueLines.length*20;
+  const tailLeft = idx % 2 === 0;
+  const bubbleX = tailLeft ? 30 : 400-30-190;
+  const captionLines = wrapText(panel.caption, 46);
+
+  return `
+  <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(${rotate}deg)">
+    <defs>${halftonePattern(patId, bg)}</defs>
+    <rect x="0" y="0" width="400" height="300" fill="url(#${patId})"/>
+    ${characterSVG(pal ? 200 : 200, 190, panel.character, panel.mood)}
+    ${speechBubble(bubbleX, 20, 190, bubbleH, dialogueLines, tailLeft)}
+    <rect x="0" y="258" width="400" height="42" fill="${PALETTES[style]?.accent==='#FFD23F' ? '#FFD23F' : '#FFD23F'}" stroke="#181614" stroke-width="2"/>
+    ${captionLines.map((l,i)=>`<text x="10" y="${272+i*13}" font-family="Space Grotesk, sans-serif" font-weight="700" font-size="12" fill="#181614">${escapeXML(l)}</text>`).join('')}
+  </svg>`;
+}
+
+function fallbackScript(idea, n){
+  // deterministic template generator used if AI sampling is unavailable
+  const beats = ['sets the scene','meets a challenge','tries a bold plan','faces a twist','reacts big','resolves it'];
+  const moods = ['neutral','surprised','confused','angry','scared','happy'];
+  const panels = [];
+  for(let i=0;i<n;i++){
+    panels.push({
+      character:'Hero',
+      mood: moods[i % moods.length],
+      dialogue: i===0 ? 'Here we go...' : (i===n-1 ? 'We did it!' : 'Wait, what now?'),
+      caption: `${idea} — the hero ${beats[i % beats.length]}.`,
+      setting:'scene'+i
+    });
+  }
+  return { title: idea, panels };
+}
+
+async function generateScript(idea, style, n){
+  let sample;
+  try{ sample = await claude.use('sample'); }catch(e){ sample = null; }
+  if(!sample) return fallbackScript(idea, n);
+  const prompt = `You are a comic scriptwriter. Given the idea and style below, output ONLY strict JSON (no markdown, no commentary) matching this shape:
+{"title": string, "panels": [{"character": string, "mood": one of ["happy","sad","angry","surprised","scared","confused","neutral"], "dialogue": string (max 8 words), "caption": string (max 14 words), "setting": string (one or two words)}]}
+Produce exactly ${n} panels forming a coherent mini-story with a beginning, turn, and ending. Style: ${style}. Idea: ${idea}`;
+  try{
+    const result = await sample.json(prompt, { modelTier:'quick' });
+    if(result && Array.isArray(result.panels) && result.panels.length){
+      return { title: result.title || idea, panels: result.panels.slice(0,n) };
+    }
+    return fallbackScript(idea, n);
+  }catch(e){
+    return fallbackScript(idea, n);
+  }
+}
+
+const genBtn = document.getElementById('genBtn');
+const statusEl = document.getElementById('status');
+const output = document.getElementById('output');
+
+genBtn.addEventListener('click', async () => {
+  const idea = document.getElementById('idea').value.trim() || 'A quiet day that turns extraordinary';
+  const style = document.getElementById('style').value;
+  const n = parseInt(document.getElementById('panels').value, 10);
+
+  genBtn.disabled = true;
+  statusEl.textContent = 'Scripting your comic...';
+  statusEl.classList.remove('err');
+  output.innerHTML = '';
+
+  try{
+    const script = await generateScript(idea, style, n);
+    statusEl.textContent = 'Drawing panels...';
+    const panelsHTML = script.panels.map((p,i)=>`<div class="panel">${renderPanel(p,i,style)}</div>`).join('');
+    output.innerHTML = `<h2 class="strip-title">${escapeXML(script.title || idea)}</h2><div class="grid">${panelsHTML}</div>`;
+    statusEl.textContent = 'Done. Change the idea and generate again anytime.';
+  }catch(err){
+    statusEl.textContent = 'Something went wrong generating the comic. Try again.';
+    statusEl.classList.add('err');
+  }finally{
+    genBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
